@@ -17,32 +17,34 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit; // Keselamatan: Halang akses terus
+    exit; // Security: block direct access
 }
 
 function wlsf_init() {
-    // KESELAMATAN: Pastikan WooCommerce sedang aktif
+    // Security: make sure WooCommerce is active.
     if ( ! class_exists( 'WooCommerce' ) ) {
         return;
     }
-    
-    // Suntik pop-up ke bahagian footer muka depan (frontend)
+
+    // Inject the popup into the frontend footer.
     add_action( 'wp_footer', 'wlsf_display_fomo_popup' );
-    // Muatkan fail JS
+    // Load the JS file.
     add_action( 'wp_enqueue_scripts', 'wlsf_enqueue_scripts' );
 }
 add_action( 'plugins_loaded', 'wlsf_init' );
 
-// 1. Fungsi Teras: Tarik data pesanan dengan Cache (Transient)
+/**
+ * 1. Core function: pull recent order data with Transient caching.
+ */
 function wlsf_get_recent_orders_data() {
     $transient_key = 'wlsf_recent_orders_cache';
     $orders_data   = get_transient( $transient_key );
 
-    // Jika tiada cache, jalankan query WooCommerce
+    // If there is no cache, run the WooCommerce query.
     if ( false === $orders_data ) {
         $orders_data = array();
-        
-        // Dapatkan 5 pesanan 'completed' atau 'processing' yang terbaru
+
+        // Get the 5 most recent 'completed' or 'processing' orders.
         $orders = wc_get_orders( array(
             'limit'   => 5,
             'status'  => array( 'wc-completed', 'wc-processing' ),
@@ -54,18 +56,20 @@ function wlsf_get_recent_orders_data() {
             foreach ( $orders as $order ) {
                 $items = $order->get_items();
                 if ( ! empty( $items ) ) {
-                    // Ambil item pertama sahaja dalam pesanan tersebut
-                    $item       = reset( $items ); 
-                    $product    = $item->get_product();
-                    
+                    // Take only the first item in the order.
+                    $item    = reset( $items );
+                    $product = $item->get_product();
+
                     if ( $product ) {
-                        // KESELAMATAN: Sanitasi bandar pembeli
+                        // Security: sanitize the buyer's city.
                         $city = sanitize_text_field( $order->get_billing_city() );
-                        if ( empty( $city ) ) $city = 'Someone'; // Fallback jika tiada bandar
+                        if ( empty( $city ) ) {
+                            $city = 'Someone'; // Fallback when no city is set.
+                        }
 
                         $orders_data[] = array(
                             'city'         => $city,
-                            'product_name' => $product->get_name(), // Tak perlu esc_html di sini, kita buat masa paparan di JS
+                            'product_name' => $product->get_name(), // Escaped at render time in JS via textContent.
                             'url'          => $product->get_permalink(),
                             'image'        => wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ) ?: wc_placeholder_img_src(),
                             'time_ago'     => human_time_diff( $order->get_date_created()->getOffsetTimestamp(), current_time( 'timestamp' ) ) . ' ago',
@@ -74,44 +78,54 @@ function wlsf_get_recent_orders_data() {
                 }
             }
         }
-        
-        // PRESTASI: Simpan dalam cache selama 30 minit
+
+        // Performance: cache for 30 minutes.
         set_transient( $transient_key, $orders_data, 30 * MINUTE_IN_SECONDS );
     }
 
     return $orders_data;
 }
 
-// 2. Daftar JS dan hantar data kepadanya
+/**
+ * 2. Register the JS and pass data to it.
+ */
 function wlsf_enqueue_scripts() {
-    // Jangan muatkan di halaman checkout atau cart untuk elak gangguan
+    // Don't load on cart/checkout pages to avoid distraction.
     if ( is_cart() || is_checkout() ) {
         return;
     }
 
     $orders_data = wlsf_get_recent_orders_data();
 
-    // Jika tiada jualan, jangan bazirkan masa muat turun JS
-    if ( empty( $orders_data ) ) return;
+    // If there are no sales, don't waste bandwidth downloading JS.
+    if ( empty( $orders_data ) ) {
+        return;
+    }
 
     wp_enqueue_script( 'wlsf-fomo-js', plugin_dir_url( __FILE__ ) . 'assets/fomo.js', array(), '1.0.0', true );
-    
-    // KESELAMATAN: Hantar data tatasusunan (array) ke JavaScript dengan selamat
+
+    // Security: pass the array data to JavaScript safely.
     wp_localize_script( 'wlsf-fomo-js', 'wlsfData', array(
         'orders' => $orders_data
     ) );
 }
 
-// 3. Bina Struktur HTML asas & CSS (Disuntik ke wp_footer)
+/**
+ * 3. Build the base HTML structure & CSS (injected into wp_footer).
+ */
 function wlsf_display_fomo_popup() {
-    if ( is_cart() || is_checkout() ) return;
+    if ( is_cart() || is_checkout() ) {
+        return;
+    }
     $orders_data = wlsf_get_recent_orders_data();
-    if ( empty( $orders_data ) ) return;
+    if ( empty( $orders_data ) ) {
+        return;
+    }
     ?>
     <style>
         .wlsf-popup-container {
             position: fixed;
-            bottom: -150px; /* Sembunyi ke bawah pada awalnya */
+            bottom: -150px; /* Hidden below the viewport initially */
             left: 20px;
             background: #fff;
             box-shadow: 0 5px 15px rgba(0,0,0,0.15);
@@ -122,12 +136,12 @@ function wlsf_display_fomo_popup() {
             gap: 15px;
             width: 320px;
             z-index: 999999;
-            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efek melantun sikit */
+            transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Slight bounce effect */
             font-family: sans-serif;
             border: 1px solid #eee;
         }
         .wlsf-popup-container.wlsf-show {
-            bottom: 20px; /* Naik ke atas */
+            bottom: 20px; /* Slide up into view */
         }
         .wlsf-popup-img img {
             width: 50px;

@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Semak jika data pesanan wujud dari PHP
+    // Check whether order data exists (passed from PHP).
     if (typeof wlsfData === 'undefined' || !wlsfData.orders || wlsfData.orders.length === 0) {
         return;
     }
@@ -13,34 +13,34 @@ document.addEventListener('DOMContentLoaded', function() {
     function showNextNotification() {
         const order = orders[currentIndex];
 
-        // Masukkan data dengan selamat menggunakan textContent (Elak XSS di JS)
+        // Insert data safely using textContent (prevents XSS in JS).
         document.getElementById('wlsf-city').textContent = order.city;
         document.getElementById('wlsf-product').textContent = order.product_name;
         document.getElementById('wlsf-time').textContent = order.time_ago;
-        
+
         document.getElementById('wlsf-url').href = order.url;
         document.getElementById('wlsf-img').src = order.image;
 
-        // Naikkan pop-up
+        // Slide the popup up.
         popup.classList.add('wlsf-show');
 
-        // Sembunyikan selepas 5 saat
+        // Hide after 5 seconds.
         setTimeout(function() {
             popup.classList.remove('wlsf-show');
-            
-            // Pergi ke pesanan seterusnya, jika habis, ulang dari mula
+
+            // Advance to the next order; loop back to the start when done.
             currentIndex++;
             if (currentIndex >= orders.length) {
                 currentIndex = 0;
             }
 
-            // Tunggu rawak antara 8 hingga 15 saat sebelum tunjuk pesanan seterusnya
+            // Random wait between 8 and 15 seconds before the next notification.
             const randomWait = Math.floor(Math.random() * (15000 - 8000 + 1) + 8000);
             setTimeout(showNextNotification, randomWait);
 
-        }, 5000); // Tunjuk selama 5 saat
+        }, 5000); // Visible for 5 seconds
     }
 
-    // Mulakan animasi pertama selepas pelawat berada di web selama 3 saat
+    // Start the first animation 3 seconds after the visitor lands.
     setTimeout(showNextNotification, 3000);
 });
