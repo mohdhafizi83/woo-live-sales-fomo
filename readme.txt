@@ -44,6 +44,15 @@ If the plugin detects 0 processing or completed orders, it will silently go to s
 = Is the customer's privacy protected? =
 Yes. We strictly follow privacy best practices. The plugin only fetches the Billing City (e.g., "London" or "Kuala Lumpur"). It absolutely NEVER reveals full names, street addresses, or emails.
 
+== Security ==
+
+This plugin follows WordPress security best practices:
+
+* Order data sent to the browser is limited to billing city, product name, product URL, and image URL (sanitized with `sanitize_text_field()` and `esc_url_raw()`); names, addresses, and emails are never exposed.
+* The frontend JavaScript renders all dynamic values with `textContent`, preventing script injection.
+* Direct file access is blocked with an `ABSPATH` guard.
+* No secrets or API keys are stored in the plugin code.
+
 == Changelog ==
 
 = 1.0.0 =

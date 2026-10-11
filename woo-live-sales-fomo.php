@@ -70,8 +70,8 @@ function wlsf_get_recent_orders_data() {
                         $orders_data[] = array(
                             'city'         => $city,
                             'product_name' => $product->get_name(), // Escaped at render time in JS via textContent.
-                            'url'          => $product->get_permalink(),
-                            'image'        => wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ) ?: wc_placeholder_img_src(),
+                            'url'          => esc_url_raw( $product->get_permalink() ),
+                            'image'        => esc_url_raw( wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ) ?: wc_placeholder_img_src() ),
                             'time_ago'     => human_time_diff( $order->get_date_created()->getOffsetTimestamp(), current_time( 'timestamp' ) ) . ' ago',
                         );
                     }
